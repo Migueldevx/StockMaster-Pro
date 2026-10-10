@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockMaster Pro</title>
+    <link rel="stylesheet" href="inventory.css">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<!-- Hamburger -->
+<button class="hamburger" onclick="toggleSidebar()" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-mark">SM</div>
+        <div class="logo-text">
+            <h1>StockMaster <span class="pro-badge">PRO</span></h1>
+            <p>Inventory Management</p>
+        </div>
+    </div>
+
+    <div class="nav-section">
+        <div class="nav-label">Principal</div>
+
+        <div class="nav-item active" onclick="navigate('dashboard')">
+            <i data-lucide="layout-dashboard"></i>
+            Dashboard
+        </div>
+
+        <div class="nav-item" onclick="navigate('products')">
+            <i data-lucide="package"></i>
+            Products
+            <span class="nav-badge warn" id="nav-low-badge">0</span>
+        </div>
+
+        <div class="nav-item" onclick="navigate('movements')">
+            <i data-lucide="history"></i>
+            Movements
+        </div>
+    </div>
+
+    <div class="nav-section">
+        <div class="nav-label">Orders</div>
+
+        <div class="nav-item" onclick="navigate('purchase')">
+            <i data-lucide="shopping-cart"></i>
+            Purchase Order
+            <span class="nav-badge" id="nav-po-badge">0</span>
+        </div>
+
+        <div class="nav-item" onclick="navigate('sales')">
+            <i data-lucide="receipt"></i>
+            Sales Orders
+            <span class="nav-badge" id="nav-so-badge">0</span>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-footer-info" id="sidebar-clock">—</div>
+    </div>
+</aside>
+
+<!-- ── Main Content ── -->
+<main class="main-content">
+
+    <!-- ══════════ DASHBOARD ══════════ -->
+    <section class="page active" id="page-dashboard">
+        <div class="page-header">
+            <div class="page-title">
+                <h2>Dashboard</h2>
+                <p>General Inventory Summary</p>
+            </div>
+            <!-- Export CSV Button -->
+            <button class="btn btn-primary" onclick="exportCSV()">
+                <i data-lucide="download" style="width: 13px; height: 13px;"></i>
+                Export CSV
+            </button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-icon"><i data-lucide="boxes"></i></div>
+                <div class="kpi-label">Total Products</div>
+                <div class="kpi-val blue" id="d-total">0</div>
+                <div class="kpi-sub">SKUs recorded</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-icon"><i data-lucide="dollar-sign"></i></div>
+                <div class="kpi-label">Inventory Value</div>
+                <div class="kpi-val green" id="d-value">$0</div>
+                <div class="kpi-sub">Price × quantity</div>
+            </div>
+            <div class="kpi-card warn">
+                <div class="kpi-icon"><i data-lucide="alert-triangle"></i></div>
+                <div class="kpi-label">Needs restocking</div>
+                <div class="kpi-val warn" id="d-low">0</div>
+                <div class="kpi-sub">Below minimum threshold</div>
+            </div>
+            <div class="kpi-card red">
+                <div class="kpi-icon"><i data-lucide="alert-octagon"></i></div>
+                <div class="kpi-label">Low stock</div>
+                <div class="kpi-val red" id="d-empty">0</div>
+                <div class="kpi-sub">Out of stock</div>
+            </div>
+        </div>
+
+        <div class="dash-grid">
+            <!-- Recent Activity -->
+            <div class="dash-panel">
+                <div class="panel-header">
+                    <div class="panel-title">Recent activity</div>
+                    <button class="btn btn-ghost" style="padding:6px 12px;font-size:0.75rem" onclick="navigate('movements')">See all →</button>
+                </div>
+                <div class="panel-body" id="d-activity">
+                    <div class="empty-state" style="padding:24px">
+                        <p>No activity recorded</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Critical Stock -->
+            <div class="dash-panel">
+                <div class="panel-header">
+                    <div class="panel-title">Critical Stock</div>
+                    <button class="btn btn-ghost" style="padding:6px 12px;font-size:0.75rem" onclick="navigate('products')">Manage →</button>
+                </div>
+                <div class="panel-body" id="d-critical">
+                    <div class="empty-state" style="padding:24px">
+                        <p>All stock is at optimal levels </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Chart Grid -->
+            <div class="dash-panel" style="grid-column: 1 / -1;">
+                <div class="panel-header">
+                    <div class="panel-title">Stock levels (Top 8)</div>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-bars" id="d-chart">
+                        <div class="empty-state" style="padding:16px;width:100%">
+                            <p>Add products to view the chart.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════ PRODUCTS ══════════ -->
+    <section class="page" id="page-products">
+        <div class="page-header">
+            <div class="page-title">
+                <h2>Products</h2>
+                <p>Real-time inventory control</p>
+            </div>
+            <button class="btn btn-primary" onclick="exportCSV()">
+                <i data-lucide="download" style="width: 13px; height: 13px;"></i>
+                Export CSV
+            </button>
+        </div>
+
+        <div class="add-panel">
+            <div class="add-panel-label">+ NEW PRODUCT</div>
+            <div class="add-grid">
+                <div class="field">
+                    <label>Product name</label>
+                    <input type="text" id="name" placeholder="Ex: Dell XPS Laptop" onkeydown="if(event.key==='Enter')addItem()">
+                </div>
+                <div class="field field-sm">
+                    <label>Quantity</label>
+                    <input type="number" id="qty" placeholder="0" min="0" onkeydown="if(event.key==='Enter')addItem()">
+                </div>
+                <div class="field field-sm">
+                    <label>Min Threshold</label>
+                    <input type="number" id="thresh" placeholder="5" min="1" onkeydown="if(event.key==='Enter')addItem()">
+                </div>
+                <div class="field field-sm">
+                    <label>Price ($)</label>
+                    <input type="number" id="price" placeholder="0.00" min="0" step="0.01" onkeydown="if(event.key==='Enter')addItem()">
+                </div>
+                <button class="btn btn-primary" onclick="addItem()">
+                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                    Add
+                </button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                <input type="text" id="search" class="search-input" placeholder="Search product..." oninput="renderTable()">
+            </div>
+            <div class="sort-group">
+                <span class="sort-label">Sort:</span>
+                <button class="sort-btn active" id="sort-name" onclick="setSort('name')">Name</button>
+                <button class="sort-btn" id="sort-qty"    onclick="setSort('qty')">Quantity</button>
+                <button class="sort-btn" id="sort-status" onclick="setSort('status')">Status</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Stock level</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th>Threshold</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-body">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="icon"><i data-lucide="package-open" style="width: 24px; height: 24px;"></i></div>
+                                <p>No products found. Add your first item above!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ══════════ MOVEMENTS ══════════ -->
+    <section class="page" id="page-movements">
+        <div class="page-header">
+            <div class="page-title">
+                <h2>Stock Movements</h2>
+                <p>Complete historical log of inflows, outflows, and adjustments</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-ghost" onclick="clearAllMovements()" style="border-color: #cccccc; color: black;">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                    Clear All
+                </button>
+                <button class="btn btn-primary" onclick="openMovementModal()">
+                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                    Record Movement
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Register Panel -->
+        <div class="add-panel" id="mv-panel" style="display:none">
+            <div class="add-panel-label">+ NEW MOVEMENT ENTRY</div>
+            <div class="add-grid">
+                <div class="field">
+                    <label>Product</label>
+                    <select id="mv-product">
+                        <option value="">Select product...</option>
+                    </select>
+                </div>
+                <div class="field field-sm">
+                    <label>Type</label>
+                    <select id="mv-type">
+                        <option value="in">Entry</option>
+                        <option value="out">Exit</option>
+                        <option value="adj">Adjustment</option>
+                        <option value="ret">Return</option>
+                    </select>
+                </div>
+                <div class="field field-sm">
+                    <label>Quantity</label>
+                    <input type="number" id="mv-qty" placeholder="0" min="1">
+                </div>
+                <div class="field">
+                    <label>Notes (optional)</label>
+                    <input type="text" id="mv-note" placeholder="Ex: Supplier delivery fulfillment">
+                </div>
+                <button class="btn btn-primary" onclick="addMovement()">Save</button>
+                <button class="btn btn-ghost" onclick="document.getElementById('mv-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                <input type="text" id="mv-search" class="search-input" placeholder="Search movement log..." oninput="renderMovements()">
+            </div>
+            <div class="sort-group">
+                <span class="sort-label">Filter:</span>
+                <button class="sort-btn active" id="mvf-all" onclick="setMvFilter('all')">All</button>
+                <button class="sort-btn" id="mvf-in" onclick="setMvFilter('in')">Entry</button>
+                <button class="sort-btn" id="mvf-out" onclick="setMvFilter('out')">Exit</button>
+                <button class="sort-btn" id="mvf-adj" onclick="setMvFilter('adj')">Adjustment</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Product</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Stock Transition</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="movements-body">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="icon"><i data-lucide="repeat" style="width: 24px; height: 24px;"></i></div>
+                                <p>No movements recorded yet</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ══════════ PURCHASE ORDERS ══════════ -->
+    <section class="page" id="page-purchase">
+        <div class="page-header">
+            <div class="page-title">
+                <h2>Purchase Orders</h2>
+                <p>Manage inbound supplier replenishment workflows</p>
+            </div>
+            <button class="btn btn-primary" onclick="openPOPanel()">
+                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                New Order
+            </button>
+        </div>
+
+        <div class="add-panel" id="po-panel" style="display:none">
+            <div class="add-panel-label">+ NEW PURCHASE ORDER</div>
+            <div class="add-grid">
+                <div class="field">
+                    <label>Supplier Name</label>
+                    <input type="text" id="po-supplier" placeholder="Ex: Global Tech Distribution">
+                </div>
+                <div class="field">
+                    <label>Product</label>
+                    <select id="po-product">
+                        <option value="">Select product...</option>
+                    </select>
+                </div>
+                <div class="field field-sm">
+                    <label>Quantity</label>
+                    <input type="number" id="po-qty" placeholder="0" min="1">
+                </div>
+                <div class="field field-sm">
+                    <label>Unit Price ($)</label>
+                    <input type="number" id="po-price" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <div class="field field-sm">
+                    <label>Est. Delivery</label>
+                    <input type="date" id="po-date">
+                </div>
+                <button class="btn btn-primary" onclick="addPurchaseOrder()">Create Order</button>
+                <button class="btn btn-ghost" onclick="document.getElementById('po-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                <input type="text" id="po-search" class="search-input" placeholder="Search orders or suppliers..." oninput="renderPurchaseOrders()">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Total Cost</th>
+                        <th>Delivery</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="po-body">
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="icon"><i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i></div>
+                                <p>No purchase orders found</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ══════════ SALES ORDERS ══════════ -->
+    <section class="page" id="page-sales">
+        <div class="page-header">
+            <div class="page-title">
+                <h2>Sales Orders</h2>
+                <p>Manage customer fulfillment and outbound stock allocations</p>
+            </div>
+            <button class="btn btn-primary" onclick="openSOPanel()">
+                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                New Order
+            </button>
+        </div>
+
+        <div class="add-panel" id="so-panel" style="display:none">
+            <div class="add-panel-label">+ NEW SALES ORDER</div>
+            <div class="add-grid">
+                <div class="field">
+                    <label>Customer Name</label>
+                    <input type="text" id="so-customer" placeholder="Ex: Apex Enterprise LLC">
+                </div>
+                <div class="field">
+                    <label>Product</label>
+                    <select id="so-product">
+                        <option value="">Select product...</option>
+                    </select>
+                </div>
+                <div class="field field-sm">
+                    <label>Quantity</label>
+                    <input type="number" id="so-qty" placeholder="0" min="1">
+                </div>
+                <div class="field field-sm">
+                    <label>Discount (%)</label>
+                    <input type="number" id="so-discount" placeholder="0" min="0" max="100">
+                </div>
+                <div class="field field-sm">
+                    <label>Fulfillment Date</label>
+                    <input type="date" id="so-date">
+                </div>
+                <button class="btn btn-primary" onclick="addSalesOrder()">Create Order</button>
+                <button class="btn btn-ghost" onclick="document.getElementById('so-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                <input type="text" id="so-search" class="search-input" placeholder="Search sales orders or customers..." oninput="renderSalesOrders()">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Customer</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Total Sale</th>
+                        <th>Delivery</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="so-body">
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="icon"><i data-lucide="briefcase" style="width: 24px; height: 24px;"></i></div>
+                                <p>No sales orders found</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+<script src="inventory.js"></script>
+<!-- Inicializar los iconos de Lucide -->
+<script>
+    lucide.createIcons();
+</script>
+</body>
+</html>
