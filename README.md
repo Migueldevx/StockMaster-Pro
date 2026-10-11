@@ -52,6 +52,28 @@ stockmaster-pro/
 
 > Adjust the file names to match how your project is organized.
 
+## How to Run
+
+1. Download or clone the project:
+   ```bash
+   git clone https://github.com/your-username/stockmaster-pro.git
+   ```
+2. Open the project folder.
+3. Open `index.html` in your browser (double-click it or use the *Live Server* extension in VS Code).
+
+No installation or server needed, just a modern browser.
+
+## Color Palette
+
+| Use | Color |
+|---|---|
+| Page background | `#cfcfcf75` |
+| Sidebar and cards | `#ffffff` |
+| Main accent | `#0056b3` |
+| Healthy stock | `#28a745` |
+| Low stock | `#ffc107` |
+| Out of stock | `#dc3545` |
+
 
 ## Author
 
