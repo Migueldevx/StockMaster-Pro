@@ -28,7 +28,7 @@ The main panel (Dashboard) shows at a glance:
 - Add, edit, and delete products.
 - Adjust quantities with + and − buttons.
 - Set a minimum stock threshold per product.
-- Status indicators: normal stock (green), low stock (yellow), and out of stock (red).
+- Status indicators: Optimal (green), Restock (yellow), and Out of stock (red).
 - Search and sorting in tables.
 - Data export to **CSV**.
 - Toast notifications for user actions.
