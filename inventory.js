@@ -162,7 +162,7 @@ function renderDashboard() {
 }
 
 function updateNavBadges() {
-    const low       = items.filter(i => getStatus(i.qty,i.threshold)==='low' || i.qty===0).length;
+    const low      = items.filter(i => getStatus(i.qty,i.threshold)==='low' || i.qty===0).length;
     const poPending = purchaseOrders.filter(p => p.status==='pending').length;
     const soPending = salesOrders.filter(s => s.status==='pending').length;
 
@@ -170,7 +170,7 @@ function updateNavBadges() {
     const pb = document.getElementById('nav-po-badge');
     const sb = document.getElementById('nav-so-badge');
 
-    lb.textContent = low;       lb.style.display = low       ? 'inline-flex' : 'none';
+    lb.textContent = low;      lb.style.display = low      ? 'inline-flex' : 'none';
     pb.textContent = poPending; pb.style.display = poPending ? 'inline-flex' : 'none';
     sb.textContent = soPending; sb.style.display = soPending ? 'inline-flex' : 'none';
 }
@@ -355,7 +355,6 @@ function setMvFilter(f) {
     renderMovements();
 }
 
-// ─── DELETE AN INDIVIDUAL MOVEMENT ────────────────────────────────────────
 function deleteMovement(id) {
     if (!confirm('Are you sure you want to delete this movement record?')) return;
     movements = movements.filter(m => m.id !== id);
@@ -365,7 +364,6 @@ function deleteMovement(id) {
     toast('Movement deleted');
 }
 
-// ─── DELETE ENTIRE TRANSACTION HISTORY ──────────────────────────────────
 function clearAllMovements() {
     if (!movements.length) {
         toast('No movements to clear');
@@ -472,6 +470,7 @@ function renderPurchaseOrders() {
             <td data-label="Actions">
                 <div class="actions">
                     ${['pending', 'approved'].includes(p.status)?`<button class="action-btn edit" onclick="advancePO(${p.id})" title="Advance workflow status"><i data-lucide="arrow-right" style="width:14px;height:14px;"></i></button>`:''}
+                    ${['pending', 'approved'].includes(p.status)?`<button class="action-btn del" onclick="cancelPO(${p.id})" title="Cancel purchase order"><i data-lucide="x" style="width:14px;height:14px;"></i></button>`:''}
                     <button class="action-btn del" onclick="deletePO(${p.id})" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
                 </div>
             </td>
@@ -491,12 +490,24 @@ function advancePO(id) {
                 const prev = item.qty;
                 item.qty += po.qty;
                 movements.unshift({ id:nextMvId++, productId:item.id, productName:item.name, type:'in',
-                    qty:po.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`PO Receipt ${poNum(po.id)} - ${po.supplier}` });
+                    qty:po.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`PO Receipt ${poNum(po.id)} ${po.supplier}` });
             }
         }
         save(); renderPurchaseOrders(); renderTable(); updateNavBadges();
         toast(`Order ${poNum(id)} updated to ${po.status}`);
     }
+}
+
+function cancelPO(id) {
+    const po = purchaseOrders.find(p=>p.id===id);
+    if (!po) return;
+    if (po.status === 'received') {
+        toast('Cannot cancel an already received order');
+        return;
+    }
+    po.status = 'cancelled';
+    save(); renderPurchaseOrders(); updateNavBadges();
+    toast(`Purchase order ${poNum(id)} cancelled`);
 }
 
 function deletePO(id) {
@@ -572,6 +583,7 @@ function renderSalesOrders() {
             <td data-label="Actions">
                 <div class="actions">
                     ${['pending','approved','shipped'].includes(s.status)?`<button class="action-btn edit" onclick="advanceSO(${s.id})" title="Advance workflow status"><i data-lucide="arrow-right" style="width:14px;height:14px;"></i></button>`:''}
+                    ${['pending','approved','shipped'].includes(s.status)?`<button class="action-btn del" onclick="cancelSO(${s.id})" title="Cancel sales order"><i data-lucide="x" style="width:14px;height:14px;"></i></button>`:''}
                     <button class="action-btn del" onclick="deleteSO(${s.id})" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
                 </div>
             </td>
@@ -591,12 +603,24 @@ function advanceSO(id) {
                 const prev = item.qty;
                 item.qty = Math.max(0, item.qty - so.qty);
                 movements.unshift({ id:nextMvId++, productId:item.id, productName:item.name, type:'out',
-                    qty:so.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`SO Dispatch ${soNum(so.id)} - ${so.customer}` });
+                    qty:so.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`SO Dispatch ${soNum(so.id)} ${so.customer}` });
             }
         }
         save(); renderSalesOrders(); renderTable(); updateNavBadges();
         toast(`Order ${soNum(id)} advanced to ${so.status}`);
     }
+}
+
+function cancelSO(id) {
+    const so = salesOrders.find(s=>s.id===id);
+    if (!so) return;
+    if (so.status === 'delivered') {
+        toast('Cannot cancel a delivered order');
+        return;
+    }
+    so.status = 'cancelled';
+    save(); renderSalesOrders(); renderTable(); updateNavBadges();
+    toast(`Sales order ${soNum(id)} cancelled`);
 }
 
 function deleteSO(id) {
@@ -617,31 +641,14 @@ function exportCSV() {
     const csv  = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), { href:url, download:'inventory_report.csv' });
+    const a    = document.createElement('a');
+    a.href = url; a.download = `stockmaster-inventory-${new Date().toISOString().split('T')[0]}.csv`;
     a.click(); URL.revokeObjectURL(url);
-    toast('Inventory CSV report downloaded');
+    toast('CSV export generated successfully');
 }
 
-// ─── TOAST NOTIFICATIONS ──────────────────────────────────────────────────────
-function toast(msg) {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(t._t);
-    t._t = setTimeout(() => t.classList.remove('show'), 2800);
-}
-
-// ─── CLOCK WIDGET ─────────────────────────────────────────────────────────────
-function updateClock() {
-    const el = document.getElementById('sidebar-clock');
-    if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-// ─── INITIALIZATION ───────────────────────────────────────────────────────────
+// ─── INITIALIZATION ON PAGE LOAD ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    renderDashboard();
-    updateNavBadges();
+    navigate('dashboard');
+    document.body.classList.add('loaded');
 });

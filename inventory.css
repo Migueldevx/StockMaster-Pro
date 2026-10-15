@@ -13,6 +13,10 @@ body {
     font-size: 15px;
     min-height: 100vh;
     display: flex;
+    opacity: 0;
+}
+body.loaded {
+    opacity: 1;
 }
 
 /* ---------- Fondo (ya no se usa) ---------- */
