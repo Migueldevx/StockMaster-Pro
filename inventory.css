@@ -15,6 +15,7 @@ body {
     display: flex;
     opacity: 0;
 }
+
 body.loaded {
     opacity: 1;
 }
@@ -236,6 +237,7 @@ body.loaded {
     border-color: #dc3545 !important;
     color: #dc3545 !important;
 }
+
 /* ---------- Tarjetas KPI ---------- */
 .kpi-grid {
     display: grid;
@@ -395,15 +397,17 @@ body.loaded {
     display: flex;
     align-items: flex-end;
     gap: 10px;
-    height: 120px;
+    height: 160px;
 }
 
 .bar-col {
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
     align-items: center;
     gap: 5px;
     flex: 1;
+    height: 100%;
 }
 
 .bar-fill {
@@ -415,7 +419,7 @@ body.loaded {
 }
 
 .bar-fill:hover {
-    background-color: #003d80;
+    opacity: 0.8;
 }
 
 .bar-label {
