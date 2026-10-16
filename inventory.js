@@ -37,13 +37,40 @@ function escHtml(s) {
 }
 function fmtDate(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-US', { day:'2-digit', month:'short', year:'2-digit' });
+    // "2026-10-15" must be read as a LOCAL date, otherwise it shows one day earlier in US time zones
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T00:00:00') : new Date(iso);
+    return d.toLocaleDateString('en-US', { day:'2-digit', month:'short', year:'2-digit' });
 }
 function fmtDateTime(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
     return d.toLocaleDateString('en-US', { day:'2-digit', month:'short' }) + ' ' +
         d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
+// Local date as YYYY-MM-DD (toISOString() uses UTC and can give tomorrow's date at night)
+function localISODate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Value used to sort the products table (status has no field of its own)
+function sortValue(item, col) {
+    if (col === 'status') return { empty:0, low:1, ok:2 }[getStatus(item.qty, item.threshold)];
+    const v = item[col];
+    return typeof v === 'string' ? v.toLowerCase() : v;
+}
+
+// ─── TOAST NOTIFICATIONS ──────────────────────────────────────────────────────
+function toast(msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'toast';
+        el.className = 'toast';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
 // ─── ROUTING & NAVIGATION ─────────────────────────────────────────────────────
@@ -182,8 +209,8 @@ function renderTable() {
 
     let list = items.filter(i => i.name.toLowerCase().includes(query));
     list.sort((a,b) => {
-        let valA = a[sortBy], valB = b[sortBy];
-        if (typeof valA === 'string') valA = valA.toLowerCase();
+        const valA = sortValue(a, sortBy), valB = sortValue(b, sortBy);
+        if (valA === valB) return 0;
         return sortAsc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
     });
 
@@ -283,29 +310,50 @@ function updateThreshold(id, val) {
     if (item) { item.threshold=n; save(); renderTable(); updateNavBadges(); }
 }
 
+// Inline quantity edit: Enter saves, Esc cancels
 function startEdit(id) {
     const item = items.find(i=>i.id===id);
-    if (!item) return;
     const cell = document.getElementById(`qty-display-${id}`);
-    cell.outerHTML = `<input class="edit-input" id="edit-${id}" type="number" min="0" value="${item.qty}"
-        onblur="commitEdit(${id})" onkeydown="if(event.key==='Enter')commitEdit(${id});if(event.key==='Escape')renderTable()">`;
-    const inp = document.getElementById(`edit-${id}`);
+    if (!item || !cell) return;
+
+    const inp = document.createElement('input');
+    inp.className = 'edit-input';
+    inp.id = `edit-${id}`;
+    inp.type = 'number';
+    inp.min = '0';
+    inp.value = item.qty;
+    cell.replaceWith(inp);
+
+    // Prevents Enter + blur from saving twice, and makes Esc really cancel
+    let done = false;
+    function finish(shouldSave) {
+        if (done) return;
+        done = true;
+        if (shouldSave) commitEdit(id, inp.value);
+        else renderTable();
+    }
+
+    inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter')       { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    inp.addEventListener('blur', function () { finish(true); });
+
     inp.focus(); inp.select();
 }
 
-function commitEdit(id) {
-    const inp = document.getElementById(`edit-${id}`);
-    if (!inp) return;
-    const n = parseInt(inp.value);
-    if (!isNaN(n) && n>=0) {
-        const item = items.find(i=>i.id===id);
-        if (item) {
-            const prev = item.qty;
-            item.qty = n;
-            movements.unshift({ id:nextMvId++, productId:id, productName:item.name, type:'adj',
-                qty:Math.abs(n-prev), prevQty:prev, newQty:n, date:new Date().toISOString(), note:'Manual inline edit' });
-            save(); toast('Stock quantity updated');
-        }
+function commitEdit(id, raw) {
+    const n = parseInt(raw);
+    const item = items.find(i=>i.id===id);
+    if (item && !isNaN(n) && n >= 0 && n !== item.qty) {
+        const prev = item.qty;
+        item.qty = n;
+        movements.unshift({ id:nextMvId++, productId:id, productName:item.name, type:'adj',
+            qty:Math.abs(n-prev), prevQty:prev, newQty:n, date:new Date().toISOString(), note:'Manual inline edit' });
+        save();
+        renderTable();                      // update the screen first...
+        toast('Stock quantity updated');    // ...then show the notice
+        return;
     }
     renderTable();
 }
@@ -396,11 +444,11 @@ function renderMovements() {
     tbody.innerHTML = list.map((m, idx) => {
         const sign = m.type==='out' ? '-' : '+';
         return `<tr style="animation:rowIn 0.3s ${idx*0.03}s ease both">
-            <td data-label="Date"><span style="font-family:'Space Mono',monospace;font-size:0.78rem">${fmtDateTime(m.date)}</span></td>
+            <td data-label="Date"><span style="font-size:0.78rem">${fmtDateTime(m.date)}</span></td>
             <td data-label="Product"><div class="prod-name">${escHtml(m.productName)}</div></td>
             <td data-label="Type"><span class="mv-type ${typeCls[m.type]||'mv-adj'}">${typeLabel[m.type]||m.type}</span></td>
-            <td data-label="Quantity"><span style="font-family:'Space Mono',monospace;font-weight:700;color:${m.type==='out'?'var(--danger)':'var(--success)'}">${sign}${m.qty}</span></td>
-            <td data-label="Transition"><span style="font-family:'Space Mono',monospace;font-size:0.8rem;color:var(--text-muted)">${m.prevQty} → ${m.newQty}</span></td>
+            <td data-label="Quantity"><span style="font-weight:700;color:${m.type==='out'?'var(--danger)':'var(--success)'}">${sign}${m.qty}</span></td>
+            <td data-label="Transition"><span style="font-size:0.8rem;color:var(--text-muted)">${m.prevQty} → ${m.newQty}</span></td>
             <td data-label="Notes"><span style="color:var(--text-muted);font-size:0.82rem">${escHtml(m.note||'—')}</span></td>
             <td data-label="Actions">
                 <div class="actions">
@@ -418,7 +466,7 @@ function openPOPanel() {
     panel.style.display = panel.style.display==='none' ? 'block' : 'none';
     populateProductSelect('po-product');
     const d = new Date(); d.setDate(d.getDate()+7);
-    document.getElementById('po-date').value = d.toISOString().split('T')[0];
+    document.getElementById('po-date').value = localISODate(d);
 }
 
 function addPurchaseOrder() {
@@ -446,7 +494,7 @@ function renderPurchaseOrders() {
     const statusDot   = { pending:'pending', approved:'approved', received:'received', partial:'partial', cancelled:'cancelled' };
 
     let list = [...purchaseOrders];
-    if (query) list = list.filter(p=>p.supplier.toLowerCase().includes(query)||p.productName.toLowerCase().includes(query)||poNum(p.id).includes(query));
+    if (query) list = list.filter(p=>p.supplier.toLowerCase().includes(query)||p.productName.toLowerCase().includes(query)||poNum(p.id).toLowerCase().includes(query));
 
     if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon"><i data-lucide="shopping-bag" style="width:24px;height:24px;"></i></div><p>No purchase orders found</p></div></td></tr>`;
@@ -455,11 +503,11 @@ function renderPurchaseOrders() {
     }
     tbody.innerHTML = list.map((p,idx) => `
         <tr style="animation:rowIn 0.3s ${idx*0.03}s ease both">
-            <td data-label="Order"><span style="font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--accent)">${poNum(p.id)}</span></td>
+            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:var(--accent)">${poNum(p.id)}</span></td>
             <td data-label="Supplier"><div class="prod-name">${escHtml(p.supplier)}</div></td>
             <td data-label="Product"><span style="font-size:0.83rem">${escHtml(p.productName)}</span></td>
-            <td data-label="Quantity"><span style="font-family:'Space Mono',monospace;font-weight:700">${p.qty}</span></td>
-            <td data-label="Total"><span style="font-family:'Space Mono',monospace">$${p.total.toFixed(2)}</span></td>
+            <td data-label="Quantity"><span style="font-weight:700">${p.qty}</span></td>
+            <td data-label="Total"><span>$${p.total.toFixed(2)}</span></td>
             <td data-label="Delivery"><span style="font-size:0.8rem;color:var(--text-muted)">${fmtDate(p.deliveryDate)}</span></td>
             <td data-label="Status">
                 <div class="order-status">
@@ -523,7 +571,7 @@ function openSOPanel() {
     panel.style.display = panel.style.display==='none' ? 'block' : 'none';
     populateProductSelect('so-product');
     const d = new Date(); d.setDate(d.getDate()+3);
-    document.getElementById('so-date').value = d.toISOString().split('T')[0];
+    document.getElementById('so-date').value = localISODate(d);
 }
 
 function addSalesOrder() {
@@ -556,7 +604,7 @@ function renderSalesOrders() {
     const statusDot   = { pending:'pending', approved:'approved', shipped:'shipped', delivered:'delivered', cancelled:'cancelled' };
 
     let list = [...salesOrders];
-    if (query) list = list.filter(s=>s.customer.toLowerCase().includes(query)||s.productName.toLowerCase().includes(query)||soNum(s.id).includes(query));
+    if (query) list = list.filter(s=>s.customer.toLowerCase().includes(query)||s.productName.toLowerCase().includes(query)||soNum(s.id).toLowerCase().includes(query));
 
     if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon"><i data-lucide="briefcase" style="width:24px;height:24px;"></i></div><p>No sales orders found</p></div></td></tr>`;
@@ -565,12 +613,12 @@ function renderSalesOrders() {
     }
     tbody.innerHTML = list.map((s,idx) => `
         <tr style="animation:rowIn 0.3s ${idx*0.03}s ease both">
-            <td data-label="Order"><span style="font-family:'Space Mono',monospace;font-size:0.78rem;color:#c084fc">${soNum(s.id)}</span></td>
+            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:var(--accent)">${soNum(s.id)}</span></td>
             <td data-label="Customer"><div class="prod-name">${escHtml(s.customer)}</div></td>
             <td data-label="Product"><span style="font-size:0.83rem">${escHtml(s.productName)}</span></td>
-            <td data-label="Quantity"><span style="font-family:'Space Mono',monospace;font-weight:700">${s.qty}</span></td>
+            <td data-label="Quantity"><span style="font-weight:700">${s.qty}</span></td>
             <td data-label="Total">
-                <span style="font-family:'Space Mono',monospace">$${s.total.toFixed(2)}</span>
+                <span>$${s.total.toFixed(2)}</span>
                 ${s.discount>0?`<span style="font-size:0.68rem;color:var(--success);margin-left:4px">-${s.discount}%</span>`:''}
             </td>
             <td data-label="Delivery"><span style="font-size:0.8rem;color:var(--text-muted)">${fmtDate(s.deliveryDate)}</span></td>
@@ -595,20 +643,22 @@ function advanceSO(id) {
     const so = salesOrders.find(s=>s.id===id);
     if (!so) return;
     const cycle = { pending:'approved', approved:'shipped', shipped:'delivered' };
-    if (cycle[so.status]) {
-        so.status = cycle[so.status];
-        if (so.status === 'shipped') {
-            const item = items.find(i=>i.id===so.productId);
-            if (item) {
-                const prev = item.qty;
-                item.qty = Math.max(0, item.qty - so.qty);
-                movements.unshift({ id:nextMvId++, productId:item.id, productName:item.name, type:'out',
-                    qty:so.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`SO Dispatch ${soNum(so.id)} ${so.customer}` });
-            }
-        }
-        save(); renderSalesOrders(); renderTable(); updateNavBadges();
-        toast(`Order ${soNum(id)} advanced to ${so.status}`);
+    if (!cycle[so.status]) return;
+
+    // Shipping takes the units out of the inventory (check the stock first)
+    if (cycle[so.status] === 'shipped') {
+        const item = items.find(i=>i.id===so.productId);
+        if (!item) { toast('This product no longer exists'); return; }
+        if (so.qty > item.qty) { toast(`Insufficient stock. Only ${item.qty} available.`); return; }
+        const prev = item.qty;
+        item.qty = prev - so.qty;
+        movements.unshift({ id:nextMvId++, productId:item.id, productName:item.name, type:'out',
+            qty:so.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`SO Dispatch ${soNum(so.id)} ${so.customer}` });
     }
+
+    so.status = cycle[so.status];
+    save(); renderSalesOrders(); renderTable(); updateNavBadges();
+    toast(`Order ${soNum(id)} advanced to ${so.status}`);
 }
 
 function cancelSO(id) {
@@ -618,6 +668,18 @@ function cancelSO(id) {
         toast('Cannot cancel a delivered order');
         return;
     }
+
+    // If it was already shipped, the units go back to the inventory
+    if (so.status === 'shipped') {
+        const item = items.find(i=>i.id===so.productId);
+        if (item) {
+            const prev = item.qty;
+            item.qty = prev + so.qty;
+            movements.unshift({ id:nextMvId++, productId:item.id, productName:item.name, type:'ret',
+                qty:so.qty, prevQty:prev, newQty:item.qty, date:new Date().toISOString(), note:`SO Cancelled ${soNum(so.id)} ${so.customer}` });
+        }
+    }
+
     so.status = 'cancelled';
     save(); renderSalesOrders(); renderTable(); updateNavBadges();
     toast(`Sales order ${soNum(id)} cancelled`);
@@ -638,11 +700,11 @@ function exportCSV() {
         const st = { ok:'Optimal', low:'Low stock', empty:'Out of stock' }[getStatus(i.qty,i.threshold)];
         rows.push([sku(i.id), i.name, i.qty, (i.price||0).toFixed(2), i.threshold, st, (i.qty*(i.price||0)).toFixed(2)]);
     });
-    const csv  = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    const csv  = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = `stockmaster-inventory-${new Date().toISOString().split('T')[0]}.csv`;
+    a.href = url; a.download = `stockmaster-inventory-${localISODate(new Date())}.csv`;
     a.click(); URL.revokeObjectURL(url);
     toast('CSV export generated successfully');
 }
