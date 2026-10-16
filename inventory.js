@@ -158,7 +158,7 @@ function renderDashboard() {
                         <div class="mini-bar-wrap"><div class="mini-bar-track"><div class="mini-bar-fill ${st}" style="width:${bw}%"></div></div></div>
                     </td>
                     <td class="mt-right">
-                        <div class="mt-val" style="color:${st==='empty'?'var(--danger)':'var(--warning)'}">${i.qty}</div>
+                        <div class="mt-val" style="color:${st==='empty'?'#dc3545':'#e0a800'}">${i.qty}</div>
                         <div class="mt-sub">/ ${i.threshold} min.</div>
                     </td>
                 </tr>`;
@@ -175,10 +175,9 @@ function renderDashboard() {
         chartEl.innerHTML = topItems.map(i => {
             const pct   = Math.round((i.qty / maxQty) * 100);
             const st    = getStatus(i.qty, i.threshold);
-            const col   = st==='ok' ? 'var(--accent)'   : st==='low' ? 'var(--warning)'    : 'var(--danger)';
-            const colBg = st==='ok' ? 'var(--accent-dim)': st==='low' ? 'var(--warning-bg)' : 'var(--danger-bg)';
+            const col   = st==='ok' ? '#0056b3' : st==='low' ? '#ffc107' : '#dc3545';
             return `<div class="bar-col">
-                <div class="bar-fill" style="height:${pct}%;background:${colBg};border-color:${col}" title="${i.name}: ${i.qty} units"></div>
+                <div class="bar-fill" style="height:${pct}%;background:${col}" title="${escHtml(i.name)}: ${i.qty} units"></div>
                 <div class="bar-label">${escHtml(i.name.length>6 ? i.name.substring(0,6)+'…' : i.name)}</div>
             </div>`;
         }).join('');
@@ -447,9 +446,9 @@ function renderMovements() {
             <td data-label="Date"><span style="font-size:0.78rem">${fmtDateTime(m.date)}</span></td>
             <td data-label="Product"><div class="prod-name">${escHtml(m.productName)}</div></td>
             <td data-label="Type"><span class="mv-type ${typeCls[m.type]||'mv-adj'}">${typeLabel[m.type]||m.type}</span></td>
-            <td data-label="Quantity"><span style="font-weight:700;color:${m.type==='out'?'var(--danger)':'var(--success)'}">${sign}${m.qty}</span></td>
-            <td data-label="Transition"><span style="font-size:0.8rem;color:var(--text-muted)">${m.prevQty} → ${m.newQty}</span></td>
-            <td data-label="Notes"><span style="color:var(--text-muted);font-size:0.82rem">${escHtml(m.note||'—')}</span></td>
+            <td data-label="Quantity"><span style="font-weight:700;color:${m.type==='out'?'#dc3545':'#28a745'}">${sign}${m.qty}</span></td>
+            <td data-label="Transition"><span style="font-size:0.8rem;color:#666666">${m.prevQty} → ${m.newQty}</span></td>
+            <td data-label="Notes"><span style="color:#666666;font-size:0.82rem">${escHtml(m.note||'—')}</span></td>
             <td data-label="Actions">
                 <div class="actions">
                     <button class="action-btn del" onclick="deleteMovement(${m.id})" title="Delete record"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
@@ -503,12 +502,12 @@ function renderPurchaseOrders() {
     }
     tbody.innerHTML = list.map((p,idx) => `
         <tr style="animation:rowIn 0.3s ${idx*0.03}s ease both">
-            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:var(--accent)">${poNum(p.id)}</span></td>
+            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:#0056b3">${poNum(p.id)}</span></td>
             <td data-label="Supplier"><div class="prod-name">${escHtml(p.supplier)}</div></td>
             <td data-label="Product"><span style="font-size:0.83rem">${escHtml(p.productName)}</span></td>
             <td data-label="Quantity"><span style="font-weight:700">${p.qty}</span></td>
             <td data-label="Total"><span>$${p.total.toFixed(2)}</span></td>
-            <td data-label="Delivery"><span style="font-size:0.8rem;color:var(--text-muted)">${fmtDate(p.deliveryDate)}</span></td>
+            <td data-label="Delivery"><span style="font-size:0.8rem;color:#666666">${fmtDate(p.deliveryDate)}</span></td>
             <td data-label="Status">
                 <div class="order-status">
                     <span class="status-dot ${statusDot[p.status]||'pending'}"></span>
@@ -613,15 +612,15 @@ function renderSalesOrders() {
     }
     tbody.innerHTML = list.map((s,idx) => `
         <tr style="animation:rowIn 0.3s ${idx*0.03}s ease both">
-            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:var(--accent)">${soNum(s.id)}</span></td>
+            <td data-label="Order"><span style="font-size:0.78rem;font-weight:700;color:#0056b3">${soNum(s.id)}</span></td>
             <td data-label="Customer"><div class="prod-name">${escHtml(s.customer)}</div></td>
             <td data-label="Product"><span style="font-size:0.83rem">${escHtml(s.productName)}</span></td>
             <td data-label="Quantity"><span style="font-weight:700">${s.qty}</span></td>
             <td data-label="Total">
                 <span>$${s.total.toFixed(2)}</span>
-                ${s.discount>0?`<span style="font-size:0.68rem;color:var(--success);margin-left:4px">-${s.discount}%</span>`:''}
+                ${s.discount>0?`<span style="font-size:0.68rem;color:#28a745;margin-left:4px">-${s.discount}%</span>`:''}
             </td>
-            <td data-label="Delivery"><span style="font-size:0.8rem;color:var(--text-muted)">${fmtDate(s.deliveryDate)}</span></td>
+            <td data-label="Delivery"><span style="font-size:0.8rem;color:#666666">${fmtDate(s.deliveryDate)}</span></td>
             <td data-label="Status">
                 <div class="order-status">
                     <span class="status-dot ${statusDot[s.status]||'pending'}"></span>
