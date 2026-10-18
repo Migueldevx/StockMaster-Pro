@@ -20,11 +20,6 @@ body.loaded {
     opacity: 1;
 }
 
-/* ---------- Fondo (ya no se usa) ---------- */
-.grid-bg {
-    display: none;
-}
-
 /* ---------- Sidebar ---------- */
 .sidebar {
     width: 220px;
@@ -238,7 +233,7 @@ body.loaded {
     color: #dc3545 !important;
 }
 
-/* ---------- Tarjetas KPI ---------- */
+/* ---------- KPI Cards ---------- */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -285,7 +280,7 @@ body.loaded {
     margin-top: 10px;
 }
 
-/* Iconos de las tarjetas: solo el icono, sin caja */
+/* ---------- Card icons ---------- */
 .kpi-card .kpi-icon {
     position: absolute;
     top: 20px;
@@ -302,7 +297,7 @@ body.loaded {
 .kpi-card.warn .kpi-icon  { color: #e0a800; }
 .kpi-card.red .kpi-icon   { color: #dc3545; }
 
-/* ---------- Paneles del dashboard ---------- */
+/* ---------- Dashboard panels ---------- */
 .dash-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -336,7 +331,7 @@ body.loaded {
     padding: 20px;
 }
 
-/* Mini tablas y barras */
+/* ---------- Mini boards and bars ---------- */
 .mini-table {
     width: 100%;
     border-collapse: collapse;
@@ -392,7 +387,7 @@ body.loaded {
 .mini-bar-fill.low   { background-color: #ffc107; }
 .mini-bar-fill.empty { background-color: #dc3545; }
 
-/* Grafico de barras */
+/* ---------- Bar chart ---------- */
 .chart-bars {
     display: flex;
     align-items: flex-end;
@@ -428,7 +423,7 @@ body.loaded {
     white-space: nowrap;
 }
 
-/* Actividad reciente */
+/* ---------- Recent activity ---------- */
 .activity-item {
     display: flex;
     align-items: flex-start;
@@ -465,7 +460,7 @@ body.loaded {
     margin-top: 3px;
 }
 
-/* ---------- Formularios ---------- */
+/* ---------- Forms ---------- */
 .add-panel {
     background-color: #ffffff;
     border: 1px solid #dddddd;
@@ -531,7 +526,7 @@ body.loaded {
     cursor: pointer;
 }
 
-/* ---------- Busqueda y filtros ---------- */
+/* ---------- Search and filters ---------- */
 .toolbar {
     display: flex;
     gap: 15px;
@@ -607,7 +602,7 @@ body.loaded {
     color: #ffffff;
 }
 
-/* ---------- Tablas ---------- */
+/* ---------- Tables ---------- */
 .table-wrap {
     background-color: #ffffff;
     border: 1px solid #dddddd;
@@ -661,7 +656,7 @@ td {
     margin-top: 3px;
 }
 
-/* Cantidad */
+/* ---------- Quantity ---------- */
 .qty-controls {
     display: flex;
     align-items: center;
@@ -695,7 +690,7 @@ td {
     text-align: center;
 }
 
-/* Estado del stock */
+/* --------- Stock status ---------- */
 .stock-bar-wrap {
     display: flex;
     flex-direction: column;
@@ -820,7 +815,7 @@ td {
     line-height: 1.5;
 }
 
-/* Estados de ordenes */
+/* ---------- Order statuses ---------- */
 .order-status {
     display: flex;
     align-items: center;
@@ -842,7 +837,7 @@ td {
 .status-dot.delivered { background-color: #28a745; }
 .status-dot.cancelled { background-color: #dc3545; }
 
-/* Tipos de movimiento */
+/* ---------- Types of movement ---------- */
 .mv-type {
     display: inline-block;
     padding: 4px 10px;
@@ -857,7 +852,7 @@ td {
 .mv-adj { background-color: #0056b3; }
 .mv-ret { background-color: #6f42c1; }
 
-/* ---------- Notificacion ---------- */
+/* ---------- Notification ---------- */
 .toast {
     position: fixed;
     bottom: 25px;
@@ -878,7 +873,7 @@ td {
     transform: translateX(-50%) translateY(0);
 }
 
-/* ---------- Menu hamburguesa ---------- */
+/* ---------- Hamburger menu ---------- */
 .hamburger {
     display: none;
     position: fixed;
