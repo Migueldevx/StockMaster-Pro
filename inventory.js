@@ -692,20 +692,137 @@ function deleteSO(id) {
 }
 
 // ─── DATA EXPORT ─────────────────────────────────────────────────────────────
-function exportCSV() {
-    if (!items.length) { toast('No inventory records available to export'); return; }
-    const rows = [['ID','Product','Quantity','Price','Threshold','Status','Total Value']];
-    items.forEach(i => {
-        const st = { ok:'Optimal', low:'Low stock', empty:'Out of stock' }[getStatus(i.qty,i.threshold)];
-        rows.push([sku(i.id), i.name, i.qty, (i.price||0).toFixed(2), i.threshold, st, (i.qty*(i.price||0)).toFixed(2)]);
+async function exportCSV() {
+    if (!items.length) { 
+        toast('No inventory records available to export'); 
+        return; 
+    }
+
+    // 1. Create the workbook and the worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Inventory Report');
+
+    // 2. Main Title (Rows 1 and 2)
+    worksheet.mergeCells('A1:G1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'STOCKMASTER PRO - INVENTORY REPORT';
+    titleCell.font = { name: 'Segoe UI', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Azul oscuro elegante
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(1).height = 35;
+
+    // Subtitle with date (Row 2)
+    worksheet.mergeCells('A2:G2');
+    const subTitle = worksheet.getCell('A2');
+    subTitle.value = `Generated on: ${new Date().toLocaleString()}`;
+    subTitle.font = { name: 'Segoe UI', size: 10, italic: true, color: { argb: 'FF64748B' } };
+    subTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(2).height = 20;
+
+    // Blank space (Row 3)
+    worksheet.getRow(3).height = 10;
+
+    // 3. Table Headers (Row 4)
+    const headers = ['SKU', 'Product Name', 'Quantity', 'Unit Price', 'Threshold', 'Status', 'Total Value'];
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 26;
+
+    headerRow.eachCell((cell) => {
+        cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0056B3' } }; // Azul Corporativo
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+            bottom: { style: 'medium', color: { argb: 'FF003366' } }
+        };
     });
-    const csv  = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `stockmaster-inventory-${localISODate(new Date())}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    toast('CSV export generated successfully');
+
+    // 4. Add the data (Starting from Row 5)
+    items.forEach((i) => {
+        const statusMap = { ok: 'Optimal', low: 'Restock', empty: 'Out of stock' };
+        const currentStatus = statusMap[getStatus(i.qty, i.threshold)] || 'Unknown';
+        const unitPrice = parseFloat(i.price || 0);
+        const totalVal = i.qty * unitPrice;
+
+        const row = worksheet.addRow([
+            sku(i.id),
+            i.name,
+            i.qty,
+            unitPrice,
+            i.threshold,
+            currentStatus,
+            totalVal
+        ]);
+
+        row.height = 22;
+
+        // Basic styles and alignments
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }; // SKU
+        row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };   // Name
+        row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };  // Qty
+        
+        // Unit Price with explicit Currency formatting
+        const priceCell = row.getCell(4);
+        priceCell.value = unitPrice;
+        priceCell.numFmt = '"$"#,##0.00';
+        priceCell.alignment = { horizontal: 'right', vertical: 'middle' };
+        
+        row.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };  // Threshold
+        row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' }; // Status
+        
+        // Total Value with explicit Currency formatting
+        const totalCell = row.getCell(7);
+        totalCell.value = totalVal;
+        totalCell.numFmt = '"$"#,##0.00';
+        totalCell.alignment = { horizontal: 'right', vertical: 'middle' };  // Total Value
+
+        // Clean style for the Status cell
+        const statusCell = row.getCell(6);
+        if (currentStatus === 'Optimal') {
+            statusCell.font = { color: { argb: 'FF15803D' }, bold: true };
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+        } else if (currentStatus === 'Restock') {
+            statusCell.font = { color: { argb: 'FFB45309' }, bold: true };
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        } else {
+            statusCell.font = { color: { argb: 'FFB91C1C' }, bold: true };
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        }
+
+        // Soft borders on data cells
+        row.eachCell((cell) => {
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+        });
+    });
+
+    // 5. Adjust column width
+    worksheet.columns = [
+        { width: 14 }, // SKU
+        { width: 28 }, // Product Name
+        { width: 12 }, // Quantity
+        { width: 16 }, // Unit Price
+        { width: 12 }, // Threshold
+        { width: 16 }, // Status
+        { width: 18 }  // Total Value
+    ];
+
+    // 6. Download the file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stockmaster-inventory-${localISODate(new Date())}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast('Excel report generated!');
 }
 
 // ─── INITIALIZATION ON PAGE LOAD ──────────────────────────────────────────────
