@@ -162,10 +162,21 @@
                 <h2>Products</h2>
                 <p>Real-time inventory control</p>
             </div>
-            <button class="btn btn-primary" onclick="exportCSV()">
-                <i data-lucide="download" style="width: 13px; height: 13px;"></i>
-                Export CSV
-            </button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input type="file" id="csv-file" accept=".csv,text/csv" hidden onchange="handleCSVFile(this)">
+                <button class="btn btn-ghost" onclick="downloadTemplate()">
+                    <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px;"></i>
+                    Download template
+                </button>
+                <button class="btn btn-ghost" onclick="document.getElementById('csv-file').click()">
+                    <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                    Import CSV
+                </button>
+                <button class="btn btn-primary" onclick="exportCSV()">
+                    <i data-lucide="download" style="width: 13px; height: 13px;"></i>
+                    Export CSV
+                </button>
+            </div>
         </div>
 
         <div class="add-panel">
