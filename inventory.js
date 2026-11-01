@@ -825,6 +825,188 @@ async function exportCSV() {
     toast('Excel report generated!');
 }
 
+// ─── DATA IMPORT ───────────────────────────────────────────────────────────────
+
+const CSV_COLUMNS = {
+    name:      ['product', 'name', 'productname'],
+    qty:       ['quantity', 'qty'],
+    price:     ['price', 'unitprice'],
+    threshold: ['threshold', 'minimum', 'min']
+};
+const CSV_MAX_ROWS  = 1000;
+const CSV_MAX_BYTES = 1024 * 1024;   // 1 MB
+
+// Picks the separator used by the file: comma (default), semicolon or tab
+function detectDelimiter(text) {
+    const firstLine = text.split(/\r?\n/)[0];
+    let best = ',', bestCount = 0;
+    [',', ';', '\t'].forEach(d => {
+        const count = firstLine.split(d).length - 1;
+        if (count > bestCount) { best = d; bestCount = count; }
+    });
+    return best;
+}
+
+// Turns the CSV text into rows of cells. It respects quotes, separators and line breaks inside quotes, and both \n and \r\n line endings.
+function parseCSV(text, delimiter) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') { field += '"'; i++; }
+                else inQuotes = false;
+            } else {
+                field += ch;
+            }
+        } else if (ch === '"') {
+            inQuotes = true;
+        } else if (ch === delimiter) {
+            row.push(field); field = '';
+        } else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(field); rows.push(row);
+            row = []; field = '';
+        } else {
+            field += ch;
+        }
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+}
+
+
+function parseCSVNumber(raw, decimalComma) {
+    let s = String(raw).trim().replace(/[$\s]/g, '');
+    if (s === '') return null;
+    s = decimalComma ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN;
+}
+
+// Checks one row. Returns { error: '...' } or { product: {...} } ready to be added
+function validateCSVRow(cells, col, decimalComma) {
+    // Safe cell reader: empty text if the column does not exist in the file
+    const cell = idx => (idx === -1 || cells[idx] === undefined) ? '' : cells[idx].trim();
+
+    const name = cell(col.name);
+    if (!name) return { error: 'missing product name' };
+    if (name.length > 100) return { error: 'product name too long (max 100 characters)' };
+
+    const qty = parseCSVNumber(cell(col.qty), decimalComma);
+    if (qty === null || isNaN(qty) || !Number.isInteger(qty) || qty < 0) {
+        return { error: 'quantity must be a whole number (0 or more)' };
+    }
+
+    let price = parseCSVNumber(cell(col.price), decimalComma);
+    if (price === null) price = 0;
+    if (isNaN(price) || price < 0) return { error: 'invalid price' };
+
+    let threshold = parseCSVNumber(cell(col.threshold), decimalComma);
+    if (threshold === null) threshold = 5;
+    if (isNaN(threshold) || !Number.isInteger(threshold) || threshold < 1) {
+        return { error: 'threshold must be a whole number (1 or more)' };
+    }
+
+    return { product: { name, qty, price: Math.round(price * 100) / 100, threshold } };
+}
+
+function showImportProblems(title, problems) {
+    const shown = problems.slice(0, 10).join('\n');
+    const more  = problems.length > 10 ? `\n...and ${problems.length - 10} more` : '';
+    alert(title + '\n\n' + shown + more);
+}
+
+function importCSV(text) {
+    const hadEncodingIssue = text.includes('\uFFFD');
+    text = text.replace(/^\uFEFF/, '');          // remove the BOM that Excel adds
+
+    const delimiter = detectDelimiter(text);
+    const rows = parseCSV(text, delimiter);
+    if (!rows.length) { toast('The file is empty'); return; }
+    if (rows.length > CSV_MAX_ROWS + 1) { toast(`Too many rows (max ${CSV_MAX_ROWS})`); return; }
+
+    // Find which column is which from the header row
+    const header = rows[0].map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+    const col = {};
+    Object.keys(CSV_COLUMNS).forEach(key => {
+        col[key] = header.findIndex(h => CSV_COLUMNS[key].includes(h));
+    });
+    if (col.name === -1 || col.qty === -1) {
+        alert('Invalid file: the first row must include the columns "Product" and "Quantity".\n\nTip: use the "Download template" button.');
+        return;
+    }
+
+    // Validate row by row
+    const existing = new Set(items.map(i => i.name.toLowerCase()));
+    const valid = [];
+    const problems = [];
+
+    for (let r = 1; r < rows.length; r++) {
+        const cells = rows[r];
+        if (cells.every(c => c.trim() === '')) continue;   // blank line
+        const rowNum = r + 1;                               // same row number you see in Excel
+
+        const result = validateCSVRow(cells, col, delimiter === ';');
+        if (result.error) { problems.push(`Row ${rowNum}: ${result.error}`); continue; }
+
+        const key = result.product.name.toLowerCase();
+        if (existing.has(key)) {
+            problems.push(`Row ${rowNum}: "${result.product.name}" already exists (skipped)`);
+            continue;
+        }
+        existing.add(key);
+        valid.push(result.product);
+    }
+
+    if (!valid.length && !problems.length) { toast('No data rows found'); return; }
+    if (!valid.length) { showImportProblems('Nothing to import.', problems); return; }
+
+    // Confirm before changing anything
+    let msg = `Import ${valid.length} product${valid.length === 1 ? '' : 's'}?`;
+    if (problems.length) msg += `\n${problems.length} row${problems.length === 1 ? '' : 's'} will be skipped.`;
+    if (hadEncodingIssue) msg += '\nWarning: the file is not UTF-8, some characters may look wrong.';
+    if (!confirm(msg)) return;
+
+    // Apply: create the products and log one "Entry" movement for each one with stock
+    valid.forEach(p => {
+        const item = { id: nextId++, name: p.name, qty: p.qty, price: p.price, threshold: p.threshold };
+        items.unshift(item);
+        if (p.qty > 0) {
+            movements.unshift({ id: nextMvId++, productId: item.id, productName: item.name, type: 'in',
+                qty: p.qty, prevQty: 0, newQty: p.qty, date: new Date().toISOString(), note: 'CSV import' });
+        }
+    });
+    save(); renderTable(); renderDashboard();
+    toast(`${valid.length} imported` + (problems.length ? `, ${problems.length} skipped` : ''));
+    if (problems.length) showImportProblems('These rows were skipped:', problems);
+}
+
+// Called by the hidden <input type="file">
+function handleCSVFile(input) {
+    const file = input.files[0];
+    input.value = '';                      // lets you pick the same file again later
+    if (!file) return;
+    if (file.size > CSV_MAX_BYTES) { toast('File too large (max 1 MB)'); return; }
+
+    const reader = new FileReader();
+    reader.onload  = () => importCSV(reader.result);
+    reader.onerror = () => toast('Could not read the file');
+    reader.readAsText(file);
+}
+
+// Downloads an empty template with the right columns
+function downloadTemplate() {
+    const csv = 'Product,Quantity,Price,Threshold\r\n';
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'stockmaster-import-template.csv';
+    a.click(); URL.revokeObjectURL(url);
+    toast('Template downloaded');
+}
+
 // ─── INITIALIZATION ON PAGE LOAD ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     navigate('dashboard');
