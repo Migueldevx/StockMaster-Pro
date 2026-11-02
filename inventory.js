@@ -692,7 +692,7 @@ function deleteSO(id) {
 }
 
 // ─── DATA EXPORT ─────────────────────────────────────────────────────────────
-async function exportCSV() {
+async function exportExcel() {
     if (!items.length) { 
         toast('No inventory records available to export'); 
         return; 
